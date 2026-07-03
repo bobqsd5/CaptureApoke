@@ -636,6 +636,8 @@ task.spawn(function()
             Char:PivotTo(TPos)
             task.wait(.1)
             DropNPC:FireServer()
+			task.wait(.2)
+			Char:PivotTo(old)
         end
 
         RemoveFromQueue(npc)
