@@ -364,34 +364,21 @@ dtToggle.InputBegan:Connect(function(input)
         
         if DisableTradeEnabled then
             task.spawn(function()
-                local Frame = Player.PlayerGui:WaitForChild("MainUI"):WaitForChild("Menus"):WaitForChild("GiftFrame")
-                tradeConnection = Frame:GetPropertyChangedSignal("Visible"):Connect(function()
-                    if DisableTradeEnabled and Frame.Visible then
-                        local TradeRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Trade"):WaitForChild("TradeResponse")
-						local GiftRemote = game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("Gift")
-                        for _, plr in Players:GetPlayers() do
-                            TradeRemote:FireServer(plr, false)
-                        end
-                    end
-                end)
-                if Frame.Visible then
-                    local TradeRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Trade"):WaitForChild("TradeResponse")
-					local GiftRemote = game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("Gift")
-                    for _, plr in Players:GetPlayers() do
-                        TradeRemote:FireServer(plr, false)
-						local char = plr.Character
-						if not char then return end
+				if DisableTradeEnabled then
+					local TradeRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Trade"):WaitForChild("TradeResponse") :: RemoteEvent
+					local GiftRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Gift") :: RemoteEvent
+					local TRRemote = ReplicatedStorage.Remotes.Trade.ReceiveTradeRequest
 
-						for _, v in Char:GetChildren() do
-							if v:IsA("Tool") then
-								local GUID = v:GetAttribute("NPCGuid") or nil
-								if not GUID then continue end
-								GiftRemote:FireServer("Decline", GUID)
-							end
-						end
-                    end
+					TRRemote.OnClientEvent:Connect(function(plr)
+						TradeRemote:FireServer(plr, false)
+					end)
 
-                end
+					GiftRemote.OnClientEvent:Connect(function(...)
+						local args = {...}
+						if args[1] ~= "INCOMING_GIFT" or #args < 6 then return end
+						GiftRemote:FireServer("Decline", args[6])
+					end)
+				end
             end)
         else
             if tradeConnection then
