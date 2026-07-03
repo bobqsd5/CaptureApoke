@@ -364,7 +364,7 @@ dtToggle.InputBegan:Connect(function(input)
         
         if DisableTradeEnabled then
             task.spawn(function()
-                local Frame = Player.PlayerGui:WaitForChild("MainGui"):WaitForChild("Menus"):WaitForChild("GiftFrame")
+                local Frame = Player.PlayerGui:WaitForChild("MainUI"):WaitForChild("Menus"):WaitForChild("GiftFrame")
                 tradeConnection = Frame:GetPropertyChangedSignal("Visible"):Connect(function()
                     if DisableTradeEnabled and Frame.Visible then
                         local TradeRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Trade"):WaitForChild("TradeResponse")
