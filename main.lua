@@ -11,7 +11,6 @@ local NPCFolder = Map.Zones.Field.NPC
 local Backpack = Player:WaitForChild("Backpack")
 local StarterGear = Player:WaitForChild("StarterGear")
 local DropNPC = ReplicatedStorage.Remotes.Field.DropNPC
-local UpgradeRemote = ReplicatedStorage.Remotes.Plot.UpgradeNPC
 local Remote = ReplicatedStorage.Remotes.Plot.SellNPC
 
 task.spawn(function()
@@ -27,8 +26,10 @@ local WakeUp = Instance.new("BindableEvent")
 
 local AutoFarmEnabled = false
 local AutoSellEnabled = false
+local DisableTradeEnabled = false
 local ScriptDestroyed = false
 local selectedRarity = "Common"
+local tradeConnection = nil
 
 local KeepRarity = {
     Common = false,
@@ -108,7 +109,7 @@ end
 local Clearing = false
 
 local function ClearTools()
-    if Clearing or not AutoSellEnabled then return end
+    if Clearing then return end
     Clearing = true
     
     for _, container in {Backpack, Char} do
@@ -120,17 +121,6 @@ local function ClearTools()
     end
 
     Clearing = false
-end
-
-local function UpgradeAll()
-    for plot = 1, 16 do
-        task.spawn(function()
-            for i = 1, 101 do
-                UpgradeRemote:FireServer(plot)
-                task.wait()
-            end
-        end)
-    end
 end
 
 local function GetPriorityNpc()
@@ -339,9 +329,82 @@ asToggle.InputBegan:Connect(function(input)
     end
 end)
 
+local dtLabel = Instance.new("TextLabel")
+dtLabel.Size = UDim2.new(1, -60, 0, 25)
+dtLabel.Position = UDim2.new(0, 0, 0, 60)
+dtLabel.BackgroundTransparency = 1
+dtLabel.Text = "Disable Trade & Gift"
+dtLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+dtLabel.TextXAlignment = Enum.TextXAlignment.Left
+dtLabel.Font = Enum.Font.Gotham
+dtLabel.TextSize = 13
+dtLabel.Parent = Content
+
+local dtToggle = Instance.new("Frame")
+dtToggle.Size = UDim2.new(0, 50, 0, 25)
+dtToggle.Position = UDim2.new(1, -50, 0, 60)
+dtToggle.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+dtToggle.BorderSizePixel = 0
+Instance.new("UICorner", dtToggle).CornerRadius = UDim.new(1, 0)
+dtToggle.Parent = Content
+
+local dtCircle = Instance.new("Frame")
+dtCircle.Size = UDim2.new(0, 21, 0, 21)
+dtCircle.Position = UDim2.new(0, 2, 0.5, -10.5)
+dtCircle.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+dtCircle.BorderSizePixel = 0
+Instance.new("UICorner", dtCircle).CornerRadius = UDim.new(1, 0)
+dtCircle.Parent = dtToggle
+
+dtToggle.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        DisableTradeEnabled = not DisableTradeEnabled
+        dtToggle.BackgroundColor3 = DisableTradeEnabled and Color3.fromRGB(50, 200, 50) or Color3.fromRGB(200, 50, 50)
+        dtCircle.Position = DisableTradeEnabled and UDim2.new(1, -23, 0.5, -10.5) or UDim2.new(0, 2, 0.5, -10.5)
+        
+        if DisableTradeEnabled then
+            task.spawn(function()
+                local Frame = Player.PlayerGui:WaitForChild("MainGui"):WaitForChild("Menus"):WaitForChild("GiftFrame")
+                tradeConnection = Frame:GetPropertyChangedSignal("Visible"):Connect(function()
+                    if DisableTradeEnabled and Frame.Visible then
+                        local TradeRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Trade"):WaitForChild("TradeResponse")
+						local GiftRemote = game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("Gift")
+                        for _, plr in Players:GetPlayers() do
+                            TradeRemote:FireServer(plr, false)
+                        end
+                    end
+                end)
+                if Frame.Visible then
+                    local TradeRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Trade"):WaitForChild("TradeResponse")
+					local GiftRemote = game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("Gift")
+                    for _, plr in Players:GetPlayers() do
+                        TradeRemote:FireServer(plr, false)
+						local char = plr.Character
+						if not char then return end
+
+						for _, v in Char:GetChildren() do
+							if v:IsA("Tool") then
+								local GUID = v:GetAttribute("NPCGuid") or nil
+								if not GUID then continue end
+								GiftRemote:FireServer("Decline", GUID)
+							end
+						end
+                    end
+
+                end
+            end)
+        else
+            if tradeConnection then
+                tradeConnection:Disconnect()
+                tradeConnection = nil
+            end
+        end
+    end
+end)
+
 local krLabel = Instance.new("TextLabel")
 krLabel.Size = UDim2.new(1, 0, 0, 20)
-krLabel.Position = UDim2.new(0, 0, 0, 65)
+krLabel.Position = UDim2.new(0, 0, 0, 90)
 krLabel.BackgroundTransparency = 1
 krLabel.Text = "Keep Rarity"
 krLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -352,7 +415,7 @@ krLabel.Parent = Content
 
 local krContainer = Instance.new("Frame")
 krContainer.Size = UDim2.new(1, 0, 0, 154)
-krContainer.Position = UDim2.new(0, 0, 0, 85)
+krContainer.Position = UDim2.new(0, 0, 0, 110)
 krContainer.BackgroundTransparency = 1
 krContainer.Parent = Content
 
@@ -391,7 +454,7 @@ end
 
 local dropdownDisplay = Instance.new("TextButton")
 dropdownDisplay.Size = UDim2.new(0, 100, 0, 30)
-dropdownDisplay.Position = UDim2.new(0, 0, 0, 245)
+dropdownDisplay.Position = UDim2.new(0, 0, 0, 270)
 dropdownDisplay.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
 dropdownDisplay.BorderSizePixel = 0
 dropdownDisplay.Text = selectedRarity
@@ -403,7 +466,7 @@ dropdownDisplay.Parent = Content
 
 local dropdownList = Instance.new("Frame")
 dropdownList.Size = UDim2.new(0, 100, 0, #rarityKeys * 22)
-dropdownList.Position = UDim2.new(0, 0, 0, 215)
+dropdownList.Position = UDim2.new(0, 0, 0, 240)
 dropdownList.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 dropdownList.BorderSizePixel = 0
 dropdownList.Visible = false
@@ -436,7 +499,7 @@ end)
 
 local sellAllBtn = Instance.new("TextButton")
 sellAllBtn.Size = UDim2.new(0, 115, 0, 30)
-sellAllBtn.Position = UDim2.new(0, 110, 0, 245)
+sellAllBtn.Position = UDim2.new(0, 110, 0, 270)
 sellAllBtn.BackgroundColor3 = Color3.fromRGB(200, 150, 0)
 sellAllBtn.BorderSizePixel = 0
 sellAllBtn.Text = "Sell All by Rarity"
@@ -447,26 +510,11 @@ Instance.new("UICorner", sellAllBtn).CornerRadius = UDim.new(0, 6)
 sellAllBtn.MouseButton1Click:Connect(SellAllByRarity)
 sellAllBtn.Parent = Content
 
-local upgradeBtn = Instance.new("TextButton")
-upgradeBtn.Size = UDim2.new(1, 0, 0, 30)
-upgradeBtn.Position = UDim2.new(0, 0, 0, 280)
-upgradeBtn.BackgroundColor3 = Color3.fromRGB(0, 120, 215)
-upgradeBtn.BorderSizePixel = 0
-upgradeBtn.Text = "Upgrade All"
-upgradeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-upgradeBtn.Font = Enum.Font.GothamBold
-upgradeBtn.TextSize = 13
-Instance.new("UICorner", upgradeBtn).CornerRadius = UDim.new(0, 6)
-upgradeBtn.MouseButton1Click:Connect(function()
-    pcall(UpgradeAll)
-end)
-upgradeBtn.Parent = Content
-
 local halfW = math.floor(230 / 2) - 5
 
 local rejoinBtn = Instance.new("TextButton")
 rejoinBtn.Size = UDim2.new(0, halfW, 0, 30)
-rejoinBtn.Position = UDim2.new(0, 0, 0, 315)
+rejoinBtn.Position = UDim2.new(0, 0, 0, 305)
 rejoinBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
 rejoinBtn.BorderSizePixel = 0
 rejoinBtn.Text = "Rejoin"
@@ -481,7 +529,7 @@ rejoinBtn.Parent = Content
 
 local randomBtn = Instance.new("TextButton")
 randomBtn.Size = UDim2.new(0, halfW, 0, 30)
-randomBtn.Position = UDim2.new(0, halfW + 10, 0, 315)
+randomBtn.Position = UDim2.new(0, halfW + 10, 0, 305)
 randomBtn.BackgroundColor3 = Color3.fromRGB(150, 50, 200)
 randomBtn.BorderSizePixel = 0
 randomBtn.Text = "Join Random"
@@ -490,13 +538,17 @@ randomBtn.Font = Enum.Font.GothamBold
 randomBtn.TextSize = 12
 Instance.new("UICorner", randomBtn).CornerRadius = UDim.new(0, 6)
 randomBtn.MouseButton1Click:Connect(function()
-    TeleportService:Teleport(game.PlaceId, Player)
+    local success, result = pcall(function()
+        return TeleportService:TeleportAsync(game.PlaceId, {Player})
+    end)
+    if not success or (result and type(result) == "table" and #result > 0 and result[1].Joined and result[1].JobId == game.JobId) then
+        return
+    end
 end)
 randomBtn.Parent = Content
 
 local MinimizedBtn = Instance.new("TextButton")
 MinimizedBtn.Size = UDim2.new(0, 40, 0, 40)
-MinimizedBtn.Position = UDim2.new(0.5, -20, 0.5, -20)
 MinimizedBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
 MinimizedBtn.BorderSizePixel = 0
 MinimizedBtn.Text = "+"
@@ -510,11 +562,13 @@ MinimizedBtn.Parent = ScreenGui
 MakeDraggable(MinimizedBtn, MinimizedBtn)
 
 MinimizeBtn.MouseButton1Click:Connect(function()
+    MinimizedBtn.Position = MainFrame.Position
     MainFrame.Visible = false
     MinimizedBtn.Visible = true
 end)
 
 MinimizedBtn.MouseButton1Click:Connect(function()
+    MainFrame.Position = MinimizedBtn.Position
     MainFrame.Visible = true
     MinimizedBtn.Visible = false
 end)
@@ -526,15 +580,21 @@ CloseBtn.MouseButton1Click:Connect(function()
 end)
 
 task.spawn(function()
-    while not ScriptDestroyed do
+    while true do
+        if ScriptDestroyed then break end
+        
         task.spawn(function()
-            pcall(ClearTools)
+            if AutoSellEnabled then
+                pcall(ClearTools)
+            end
         end)
 
-        if not AutoFarmEnabled then
+        if not AutoFarmEnabled or not next(Queue) then
             WakeUp.Event:Wait()
-            if not AutoFarmEnabled then continue end
         end
+        
+        if ScriptDestroyed then break end
+        if not AutoFarmEnabled then continue end
 
         local npc, priority = GetPriorityNpc()
 
@@ -594,7 +654,9 @@ task.spawn(function()
         RemoveFromQueue(npc)
 
         task.spawn(function()
-            pcall(ClearTools)
+            if AutoSellEnabled then
+                pcall(ClearTools)
+            end
         end)
     end
 end)
@@ -628,12 +690,15 @@ Backpack.ChildAdded:Connect(function(tool)
     end)
 
     task.spawn(function()
-        pcall(ClearTools)
+        if AutoSellEnabled then
+            pcall(ClearTools)
+        end
     end)
 end)
 
 task.spawn(function()
-    while not ScriptDestroyed and task.wait(2) do
+    while task.wait(2) do
+        if ScriptDestroyed then break end
         for _, npc in ipairs(NPCFolder:GetChildren()) do
             if npc:IsA("Model") and GetPrompt(npc) and not Queue[npc] then
                 AddToQueue(npc)
